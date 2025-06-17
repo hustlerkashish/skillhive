@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getCourses } from "../api";
 
 export default function Navbar({ user, onLogout }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const profileRef = useRef(null);
+  const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -61,6 +66,40 @@ export default function Navbar({ user, onLogout }) {
     }
   };
 
+  const handleSearch = async (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query.length > 2) {
+      try {
+        const response = await getCourses({ search: query });
+        setSearchResults(response.data.slice(0, 8)); // Show first 8 results
+        setShowDropdown(true);
+      } catch (error) {
+        console.error("Error searching courses:", error);
+        setSearchResults([]);
+      }
+    } else {
+      setSearchResults([]);
+      setShowDropdown(false);
+    }
+  };
+
+  const handleCourseClick = (courseId) => {
+    setShowDropdown(false);
+    setSearchQuery("");
+    navigate(`/courses/${courseId}`);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/courses?search=${encodeURIComponent(searchQuery.trim())}`);
+      setShowDropdown(false);
+      setSearchQuery("");
+    }
+  };
+
   return (
     <nav className="bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -102,27 +141,65 @@ export default function Navbar({ user, onLogout }) {
               <label htmlFor="search" className="sr-only">
                 Search courses
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg
-                    className="h-5 w-5 text-gray-400"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <input
-                  id="search"
-                  name="search"
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="Search courses"
-                  type="search"
-                />
+              <div className="relative" ref={dropdownRef}>
+                <form onSubmit={handleSubmit} className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg
+                      className="h-5 w-5 text-gray-400"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <input
+                    id="search"
+                    name="search"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Search courses"
+                    type="search"
+                    value={searchQuery}
+                    onChange={handleSearch}
+                    autoComplete="off"
+                  />
+                </form>
+                
+                {/* Search Results Dropdown */}
+                {showDropdown && searchResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto max-h-96">
+                    {searchResults.map((course) => (
+                      <div
+                        key={course._id}
+                        className="cursor-pointer hover:bg-gray-100 px-4 py-2"
+                        onClick={() => handleCourseClick(course._id)}
+                      >
+                        <div className="flex items-center">
+                          {course.thumbnail && (
+                            <img
+                              src={course.thumbnail}
+                              alt={course.title}
+                              className="h-10 w-10 object-cover rounded mr-3"
+                            />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{course.title}</p>
+                            <p className="text-xs text-gray-500">{course.category}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div 
+                      className="cursor-pointer hover:bg-gray-100 px-4 py-2 text-center text-sm text-blue-600 font-medium border-t"
+                      onClick={handleSubmit}
+                    >
+                      Show all results
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -194,7 +271,7 @@ export default function Navbar({ user, onLogout }) {
                   Sign in
                 </Link>
                 <Link
-                  to="/signup"
+                  to="/register"
                   className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded-md text-sm font-medium"
                 >
                   Sign up

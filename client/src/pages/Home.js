@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getUserProfile, getFeaturedCourses } from "../api";
+import { getUserProfile, getFeaturedCourses, getCourses } from "../api";
 
 export default function Home() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [featuredCourses, setFeaturedCourses] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,6 +28,17 @@ export default function Home() {
       setLoading(false);
     }
     fetchFeaturedCourses();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const fetchProfile = async () => {
@@ -48,9 +62,38 @@ export default function Home() {
     }
   };
 
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query.length > 2) {
+      try {
+        const response = await getCourses({ search: query });
+        setSearchResults(response.data.slice(0, 8));
+        setShowDropdown(true);
+      } catch (error) {
+        console.error("Error searching courses:", error);
+        setSearchResults([]);
+      }
+    } else {
+      setSearchResults([]);
+      setShowDropdown(false);
+    }
+  };
+
+  const handleCourseClick = (courseId) => {
+    setShowDropdown(false);
+    setSearchQuery("");
+    navigate(`/courses/${courseId}`);
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
-    navigate(`/courses?search=${encodeURIComponent(searchQuery)}`);
+    if (searchQuery.trim()) {
+      navigate(`/courses?search=${encodeURIComponent(searchQuery.trim())}`);
+      setShowDropdown(false);
+      setSearchQuery("");
+    }
   };
 
   if (loading) {
@@ -70,18 +113,18 @@ export default function Home() {
             <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
               <div className="sm:text-center lg:text-left">
                 <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                  <span className="block">Learn from the best</span>
-                  <span className="block text-blue-600">Master new skills</span>
+                  <span className="block xl:inline">Learn new skills</span>{" "}
+                  <span className="block text-blue-600 xl:inline">online with top educators</span>
                 </h1>
                 <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
-                  Join SkillHive to access high-quality courses taught by expert instructors. Learn at your own pace and advance your career.
+                  Build skills with courses, certificates, and degrees online from world-class universities and companies.
                 </p>
                 <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                   {!user ? (
                     <>
                       <div className="rounded-md shadow">
                         <Link
-                          to="/signup"
+                          to="/register"
                           className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10"
                         >
                           Get Started
@@ -123,220 +166,96 @@ export default function Home() {
       {/* Search Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="max-w-3xl mx-auto">
-          <form onSubmit={handleSearch} className="flex gap-4">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search for courses..."
-              className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-            <button
-              type="submit"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Search
-            </button>
-          </form>
+          <div className="relative" ref={dropdownRef}>
+            <form onSubmit={handleSubmit} className="flex gap-4">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearch}
+                  placeholder="Search for courses..."
+                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  autoComplete="off"
+                />
+                
+                {/* Search Results Dropdown */}
+                {showDropdown && searchResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto max-h-96">
+                    {searchResults.map((course) => (
+                      <div
+                        key={course._id}
+                        className="cursor-pointer hover:bg-gray-100 px-4 py-2"
+                        onClick={() => handleCourseClick(course._id)}
+                      >
+                        <div className="flex items-center">
+                          {course.thumbnail && (
+                            <img
+                              src={course.thumbnail}
+                              alt={course.title}
+                              className="h-10 w-10 object-cover rounded mr-3"
+                            />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{course.title}</p>
+                            <p className="text-xs text-gray-500">{course.category}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div 
+                      className="cursor-pointer hover:bg-gray-100 px-4 py-2 text-center text-sm text-blue-600 font-medium border-t"
+                      onClick={handleSubmit}
+                    >
+                      Show all results
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                type="submit"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Search
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 
       {/* Featured Courses Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-            Featured Courses
-          </h2>
-          <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-            Explore our most popular courses and start learning today
-          </p>
-        </div>
-
-        <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+          Featured Courses
+        </h2>
+        <div className="mt-6 grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {featuredCourses.map((course) => (
             <div
               key={course._id}
-              className="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow duration-300"
+              className="bg-white overflow-hidden shadow rounded-lg"
             >
-              <div className="relative pb-48">
-                <img
-                  className="absolute h-full w-full object-cover"
-                  src={course.thumbnail || "/default-course.jpg"}
-                  alt={course.title}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "/default-course.jpg";
-                  }}
-                />
-              </div>
+              <img
+                src={course.thumbnail}
+                alt={course.title}
+                className="w-full h-48 object-cover"
+              />
               <div className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <img
-                      className="h-10 w-10 rounded-full"
-                      src={course.instructor.profilePicture}
-                      alt={course.instructor.name}
-                    />
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900">
-                      {course.instructor.name}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {course.instructor.title}
-                    </p>
-                  </div>
-                </div>
+                <h3 className="text-lg font-medium text-gray-900">
+                  {course.title}
+                </h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  {course.description}
+                </p>
                 <div className="mt-4">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {course.title}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 line-clamp-2">
-                    {course.description}
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <svg
-                      className="h-5 w-5 text-yellow-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <span className="ml-1 text-sm text-gray-500">
-                      {course.rating} ({course.reviews} reviews)
-                    </span>
-                  </div>
-                  <div className="text-sm font-medium text-gray-900">
-                    ${course.price}
-                  </div>
-                </div>
-                <div className="mt-6">
                   <Link
                     to={`/courses/${course._id}`}
-                    className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    className="text-blue-600 hover:text-blue-500"
                   >
-                    View Course
+                    Learn more →
                   </Link>
                 </div>
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="mt-12 text-center">
-          <Link
-            to="/courses"
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-          >
-            View All Courses
-            <svg
-              className="ml-2 -mr-1 h-5 w-5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </Link>
-        </div>
-      </div>
-
-      {/* Features Section */}
-      <div className="bg-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              Why Choose SkillHive?
-            </h2>
-            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-              Everything you need to advance your career
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="relative">
-              <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
-                </svg>
-              </div>
-              <div className="ml-16">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Expert Instructors
-                </h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Learn from industry professionals and experienced educators who are passionate about teaching.
-                </p>
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                  />
-                </svg>
-              </div>
-              <div className="ml-16">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Certificate of Completion
-                </h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Earn certificates to showcase your skills and advance your career.
-                </p>
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-              </div>
-              <div className="ml-16">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Community Learning
-                </h3>
-                <p className="mt-2 text-base text-gray-500">
-                  Join a community of learners, share your progress, and get help when you need it.
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

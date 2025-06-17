@@ -36,10 +36,10 @@ const EditCourse = () => {
 
   const fetchCourse = async () => {
     try {
-      const data = await getCourse(id);
+      const { data } = await getCourse(id);
       setFormData({
         ...data,
-        price: data.price.toString(),
+        price: data.price ? data.price.toString() : "",
       });
       setLoading(false);
     } catch (error) {

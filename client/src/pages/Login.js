@@ -228,21 +228,7 @@ export default function Login() {
           </div>
         </form>
 
-        <div className="text-sm text-center">
-          <Link
-            to="/signup"
-            className="font-medium text-blue-600 hover:text-blue-500"
-          >
-            Don't have an account? Sign up
-          </Link>
-          <span className="mx-2">|</span>
-          <Link
-            to="/forgot-password"
-            className="font-medium text-blue-600 hover:text-blue-500"
-          >
-            Forgot password?
-          </Link>
-        </div>
+        
 
         <button
           type="button"

@@ -81,7 +81,7 @@ API.interceptors.response.use(
 export const login = (credentials) => API.post('/auth/login', credentials);
 export const register = (userData) => API.post('/auth/signup', userData);
 export const forgotPassword = (email) => API.post('/auth/forgot-password', { email });
-export const resetPassword = (token, password) => API.post('/auth/reset-password', { token, password });
+export const resetPassword = (token, password) => API.post('/auth/reset-password', { token, newPassword: password });
 
 // User API
 export const getUserProfile = () => API.get('/users/profile');
@@ -95,7 +95,7 @@ export const uploadProfilePicture = (formData) => {
 };
 
 // Course API
-export const getCourses = () => API.get('/courses');
+export const getCourses = (params = {}) => API.get('/courses', { params });
 export const getFeaturedCourses = () => API.get('/courses/featured');
 export const getCourse = (courseId) => API.get(`/courses/${courseId}`);
 export const createCourse = (courseData) => API.post('/courses', courseData);

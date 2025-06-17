@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { getCourse, enrollInCourse } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 import ReactPlayer from "react-player";
+import { toast } from "react-toastify";
 
 const CourseDetail = () => {
   const { id } = useParams();
@@ -14,6 +15,11 @@ const CourseDetail = () => {
   const [enrolling, setEnrolling] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState(null);
   const [selectedLecture, setSelectedLecture] = useState(null);
+  const [reviewForm, setReviewForm] = useState({
+    rating: 0,
+    comment: "",
+  });
+  const [hoveredRating, setHoveredRating] = useState(0);
 
   const fetchCourse = useCallback(async () => {
     if (!id) {
@@ -72,6 +78,43 @@ const CourseDetail = () => {
       setSelectedLecture({ sectionIndex, lectureIndex });
     } else {
       setError("Please enroll in the course to view this lecture.");
+    }
+  };
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      toast.error("Please log in to submit a review");
+      navigate("/login");
+      return;
+    }
+
+    if (!isStudentEnrolled) {
+      toast.error("You must be enrolled in the course to submit a review");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/courses/${id}/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(reviewForm),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to submit review");
+      }
+
+      const updatedCourse = await response.json();
+      setCourse(updatedCourse);
+      setReviewForm({ rating: 0, comment: "" });
+      toast.success("Review submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      toast.error("Failed to submit review. Please try again.");
     }
   };
 
@@ -215,8 +258,56 @@ const CourseDetail = () => {
       </div>
 
       {/* Course Reviews */}
-      <div className="mt-8">
+      <div className="mt-12">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Reviews</h2>
+        
+        {/* Review Form */}
+        {user && isStudentEnrolled && (
+          <div className="mb-8 p-6 bg-white rounded-lg shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Write a Review</h3>
+            <form onSubmit={handleReviewSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+                <div className="flex space-x-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      className="text-2xl focus:outline-none"
+                      onMouseEnter={() => setHoveredRating(star)}
+                      onMouseLeave={() => setHoveredRating(0)}
+                      onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
+                    >
+                      {star <= (hoveredRating || reviewForm.rating) ? "★" : "☆"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
+                  Comment
+                </label>
+                <textarea
+                  id="comment"
+                  rows="4"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={reviewForm.comment}
+                  onChange={(e) => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+                  required
+                  placeholder="Share your experience with this course..."
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Submit Review
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Reviews List */}
         {course.reviews.length > 0 ? (
           <div className="space-y-4">
             {course.reviews.map((review, reviewIndex) => (
