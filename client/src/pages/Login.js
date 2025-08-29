@@ -230,13 +230,7 @@ export default function Login() {
 
         
 
-        <button
-          type="button"
-          onClick={() => window.open("https://skillhive.in", "_blank")}
-          className="mt-4 text-sm text-center text-blue-600 hover:text-blue-500"
-        >
-          skillhive.in
-        </button>
+        
       </div>
     </div>
   );
