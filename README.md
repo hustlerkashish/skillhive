@@ -73,7 +73,7 @@ npm install
 4. Create a `.env` file in the server directory with the following variables:
 ```
 MONGODB_URI=....
-JWT_SECRET=
+JWT_SECRET=6961aafbf018c2fe9e92e8bce76bc174178f3079966cff5f4be6f5ef26b51ac5
 PORT=5000
 
 
